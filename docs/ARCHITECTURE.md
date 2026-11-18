@@ -5,7 +5,7 @@
 | 版本 | 0.8.0（… / P5 连拍升格视频 / P6 多选与删除 已完成） |
 | 日期 | 2026-11-01 |
 | 运行环境 | macOS 12+，Apple Silicon（M1 Pro 32GB 实测），Python 3.13 |
-| 安装位置 | `~/Applications/birddesk`，入口 `BirdDesk.app` |
+| 安装位置 | 任意目录（`git clone` 后 `./setup.sh`），入口 `BirdDesk.app` |
 | 代码规模 | Python 约 3.4k 行，前端约 2.2k 行（无框架）；本地模型 1.8GB |
 
 ---
@@ -92,7 +92,7 @@ main.py
 ## 3. 目录结构
 
 ```
-~/Applications/birddesk/
+<仓库根目录>/
 ├── BirdDesk.app/                 # 打包产物（make_app.sh 生成）
 ├── app/
 │   ├── main.py                   # 入口：端口、uvicorn、pywebview、原生对话框
@@ -641,7 +641,9 @@ P3 的预留设计：分析结果已是“可扩展 JSON + 版本号”，新增
 ## 14. 附录：本地开发与运行
 
 ```bash
-cd ~/Applications/birddesk
+git clone git@github.com:jiqiujia/BirdDesk.git
+cd BirdDesk
+./setup.sh                    # 首次：建 .venv、装依赖、下载模型（约 1.8GB）
 
 # 桌面窗口（正常使用）
 ./BirdDesk.app/Contents/MacOS/BirdDesk        # 或双击 BirdDesk.app
@@ -651,26 +653,15 @@ cd ~/Applications/birddesk
 .venv/bin/python -m app.main --no-open --port 8765
 # 然后浏览器打开 http://127.0.0.1:8765/
 
-# 测试
-.venv/bin/python tests/test_flow.py                     # P1 分组/整理/撤销
-.venv/bin/python tests/test_analysis.py /tmp/birdcal    # P2 合焦/择优/评级
-.venv/bin/python tests/test_eyes.py                     # 鸟眼单测
-.venv/bin/python tests/test_species.py /tmp/birdsp      # 鸟种识别 + XMP 关键词
-.venv/bin/python tests/eval_species.py /tmp/birdsp      # 鸟种准确率评估
-.venv/bin/python tests/test_develop.py                  # 出片（降噪/分区/导出）
-.venv/bin/python tests/test_video.py                    # 连拍升格视频
-.venv/bin/python tests/test_trash.py                    # 删除到废纸篓与恢复
-.venv/bin/python tests/calibrate_focus.py /tmp/birdcal  # 阈值标定
-node web/app.js --self-test                             # 前端纯函数断言
-
-# 改完代码重建 .app（含图标）
-./make_app.sh
+# 测试（需要一份照片目录，仓库不含图片）
+BIRDDESK_DATA_DIR=$(mktemp -d) .venv/bin/python tests/test_flow.py                  # 分组/整理/撤销
+.venv/bin/python tests/test_analysis.py /path/to/photos                            # 合焦/择优
+.venv/bin/python tests/test_eyes.py --images /path/to/photos                       # 鸟眼
+BIRDDESK_SAMPLE_DIR=/path/to/photos/DCIM/100MSDCF \
+  .venv/bin/python tests/test_develop.py                                           # 出片/16bit/RAW
+.venv/bin/python tests/test_video.py                                               # 升格视频
+BIRDDESK_SAMPLE_DIR=/path/to/photos/DCIM/100MSDCF \
+  .venv/bin/python tests/test_trash.py                                             # 删除/恢复
 ```
 
-**隔离数据目录**：测试和临时体验时用 `BIRDDESK_DATA_DIR=/tmp/xx`，避免污染真实缓存（`~/Library/Application Support/BirdDesk`）。
-
-**加新分析维度（如 P3 鸟种）的四步**：
-1. 写模块（输入 `rgb` + `bird_box`，输出纯 dict，不碰文件）；
-2. 在 `analyzer.analyze_image()` 里挂上，异常必须捕获成状态字段而不是抛出（不能因为新维度失败丢掉合焦结果）；
-3. 递增 `analyzer.VERSION`，让旧缓存自然失效；
-4. 前端加展示 + 单测覆盖“失败隔离”和“旧数据兼容”。
+`tests/calibrate_focus.py`（合焦阈值标定）与 `tests/eval_species.py`（鸟种准确率评估）需要额外样本集，用法见文件头注释。
