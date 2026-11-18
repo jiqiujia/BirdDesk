@@ -20,7 +20,9 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app import analyzer, denoise, develop, raw_io, scanner, server  # noqa: E402
 
-SRC = Path("/Users/qiujiaji/WorkBuddy/2026-10-31-19-04-22/demo_photos/真鸟连拍/DCIM/100MSDCF/DSC00010.JPG")
+# 示例照片：用环境变量指定，避免把本机路径写进仓库
+SAMPLE_DIR = Path(os.environ.get("BIRDDESK_SAMPLE_DIR", "/tmp/birdcal/sample/100MSDCF"))
+SRC = SAMPLE_DIR / "DSC00010.JPG"
 
 
 def psnr(a, b):
