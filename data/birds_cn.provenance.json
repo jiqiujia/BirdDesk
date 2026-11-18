@@ -1,0 +1,14 @@
+{
+ "file": "birds_cn.json",
+ "species_count": 1508,
+ "source": "https://github.com/Niaoyouji/Chinese-bird-name-bridge — data/ioc-species-db.json",
+ "upstream": [
+  "IOC World Bird List 15.1",
+  "Wikidata 中文名",
+  "《中国鸟类分类与分布名录》第 4 版"
+ ],
+ "license": "CC BY-NC 4.0",
+ "license_note": "仅个人 / 学术 / 非商业使用；必须保留署名。若需商业分发，请替换为自建或商用许可的名录数据。",
+ "generated": "2026-11-01",
+ "derivation": "取 latin + zh_CN.primary + en.primary，按学名去重排序；中文名唯一，无空值"
+}

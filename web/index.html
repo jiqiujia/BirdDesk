@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BirdDesk 鸟片整理</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/web/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><path d="M4 19c5 0 8-3 10-7 2-4 5-6 9-6 2 0 4 1 5 3l-3 1c0 6-4 12-12 13l-3 4-1-4c-2-1-4-2-5-4z" fill="#2f7d5b"/><circle cx="23" cy="9" r="1.2" fill="#fff"/></svg>
+    <span>BirdDesk</span><span class="tag" title="合焦 / 鸟眼 / 鸟种（BioCLIP 2 + 中国鸟类名录）">P3</span>
+  </div>
+  <button id="btnPick" class="btn">选择目录…</button>
+  <div id="rootPath" class="path">未选择目录</div>
+  <button id="btnRescan" class="btn ghost" disabled title="重新扫描当前目录">重新扫描</button>
+  <button id="btnOpenRoot" class="btn ghost icon" disabled title="在 Finder 中打开">↗</button>
+  <div class="spacer"></div>
+  <div id="anaPill" class="ana-pill" hidden></div>
+  <button id="btnHistory" class="btn ghost">整理记录</button>
+  <button id="btnBatch" class="btn" disabled title="按筛选条件批量出片">批量出片</button>
+  <button id="btnSelect" class="btn ghost" disabled title="进入多选模式（也可按住 ⌘ 点选）">选择</button>
+  <button id="btnPurge" class="btn ghost" disabled title="把已标记为淘汰的照片移到废纸篓">清理淘汰</button>
+  <button id="btnAirDrop" class="btn ghost" disabled title="把已打星的照片隔空传送到 iPhone/iPad/Mac（发 JPG 成片）">隔空传送</button>
+  <button id="btnPlan" class="btn primary" disabled>整理预览</button>
+</header>
+
+<section class="toolbar" id="toolbar" hidden>
+  <div class="ctl">
+    <span>连拍间隔 ≤</span>
+    <input type="range" id="gap" min="0.1" max="3" step="0.1">
+    <input type="number" id="gapNum" min="0.05" max="30" step="0.05" class="num">
+    <span>秒</span>
+  </div>
+  <div class="ctl">
+    <span>至少</span><input type="number" id="minBurst" min="2" max="100" step="1" class="num"><span>张算一组</span>
+  </div>
+  <label class="ctl chk"><input type="checkbox" id="splitCam"> 按机身区分</label>
+  <label class="ctl chk"><input type="checkbox" id="recursive"> 包含子文件夹</label>
+  <div class="ctl">
+    <span>合焦标准</span>
+    <select id="strictness" class="sel">
+      <option value="loose">宽松</option><option value="normal">标准</option><option value="strict">严格</option>
+    </select>
+  </div>
+  <div class="spacer"></div>
+  <div id="stats" class="stats"></div>
+</section>
+<section class="filterbar" id="filterbar" hidden>
+  <div class="chips" id="chips"></div>
+  <div class="spacer"></div>
+  <label class="ctl"><span>鸟种</span>
+    <select id="speciesSel" class="sel" title="按鸟种筛选（含已确认与模型建议）">
+      <option value="">全部鸟种</option>
+    </select>
+  </label>
+  <label class="ctl sort-ctl"><span>排序</span>
+    <select id="sort" class="sel" title="只改变显示顺序，不影响文件夹结构与整理计划；连拍按本组最佳的分数/星级参与排序">
+      <option value="time">拍摄时间</option>
+      <option value="score">合焦分 高→低</option>
+      <option value="score_asc">合焦分 低→高</option>
+      <option value="rating">星级 高→低</option>
+    </select>
+  </label>
+  <div class="legend"><i class="dot g-sharp"></i>合焦 <i class="dot g-soft"></i>偏软 <i class="dot g-bad"></i>失焦/跑焦/运动模糊 <i class="dot g-nobird"></i>无鸟</div>
+</section>
+
+<section class="selbar" id="selbar" hidden>
+  <span class="sel-count" id="selCount">已选 0 张</span>
+  <span class="sel-hint">点连拍卡片=整组 · ⌥点卡片展开逐帧 · 点单帧=只选这张</span>
+  <button class="btn small" id="selAll">全选当前</button>
+  <button class="btn small" id="selNone">取消选择</button>
+  <div class="spacer"></div>
+  <button class="btn small" id="selReject">标记淘汰</button>
+  <button class="btn small" id="selUnreject">取消标记</button>
+  <button class="btn small" id="selAirDrop">隔空传送</button>
+  <button class="btn small danger" id="selDelete">删除…</button>
+  <button class="btn small ghost" id="selExit">退出选择</button>
+</section>
+
+<div class="layout">
+  <aside id="sidebar" hidden></aside>
+  <main id="content"></main>
+</div>
+
+<!-- 大图查看 -->
+<div id="viewer" class="viewer" hidden>
+  <div class="viewer-stage" id="vStage">
+    <div class="vwrap" id="vWrap">
+      <img id="viewerImg" alt="">
+      <img id="vHeat" class="heat" alt="" hidden>
+      <div id="vOverlay" class="overlay"></div>
+    </div>
+    <div class="zoomwrap" id="vZoom" hidden><img id="vZoomImg" alt=""><div class="zoom-tip" id="vZoomTip"></div></div>
+    <button class="nav prev" id="vPrev" title="上一张 (←)">‹</button>
+    <button class="nav next" id="vNext" title="下一张 (→)">›</button>
+    <div class="viewer-tools" role="group" aria-label="查看与定位工具">
+      <button class="vt on" id="tBox" aria-pressed="true" title="鸟体框 / 黄圈 / 相机对焦点 (B)，不控制鸟眼">B 鸟体</button>
+      <button class="vt on" id="tEye" aria-pressed="true" title="仅主鸟双眼：绿实框为稳定定位，橙虚框为候选 (E)，独立于 B">E 鸟眼</button>
+      <button class="vt" id="tHeat" aria-pressed="false" title="锐度热力图 (H)">H 热力图</button>
+      <button class="vt" id="tZoom" title="100% 优先查看选中的稳定鸟眼；否则回退鸟体最锐区域（黄圈，非眼睛）(Z)">Z 100%</button>
+      <button class="vt" id="tDev" title="出片：降噪 / 主体增强 / 背景处理 (P)">P 出片</button>
+      <div class="heat-legend" id="vHeatLegend" hidden><span>模糊</span><i></i><span>锐利</span></div>
+    </div>
+    <div class="viewer-counter" id="vCounter"></div>
+  </div>
+  <aside class="viewer-info">
+    <div class="vi-head">
+      <div id="vTitle" class="vi-title"></div>
+      <button class="btn small primary" id="vDev" title="出片：降噪 / 主体增强 / 背景处理（快捷键 P）">出片</button>
+      <button class="btn ghost icon" id="vClose" title="关闭 (Esc)">✕</button>
+    </div>
+    <div id="vRate" class="vrate"></div>
+    <div id="vInfo"></div>
+  </aside>
+</div>
+
+<!-- 升格视频 -->
+<div id="videoModal" class="modal" hidden>
+  <div class="dialog">
+    <div class="dlg-head"><h3>升格为视频 · <span id="vidName" class="dev-name"></span></h3><button class="btn ghost icon" data-close>✕</button></div>
+    <div class="dlg-body">
+      <div class="opts">
+        <div class="opt-row">
+          <span class="opt-label">帧率</span>
+          <select id="vidFps" class="sel">
+            <option value="0">原始帧率</option>
+            <option value="5">5 帧/秒</option>
+            <option value="8">8 帧/秒</option>
+            <option value="10" selected>10 帧/秒</option>
+            <option value="15">15 帧/秒</option>
+            <option value="20">20 帧/秒</option>
+            <option value="24">24 帧/秒</option>
+            <option value="30">30 帧/秒</option>
+          </select>
+          <span class="dev-meta" id="vidHint"></span>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">分辨率</span>
+          <select id="vidSize" class="sel">
+            <option value="1080">长边 1080</option>
+            <option value="1440">长边 1440</option>
+            <option value="1920">长边 1920</option>
+            <option value="2560">长边 2560</option>
+            <option value="0" selected>原始尺寸</option>
+          </select>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">选项</span>
+          <label class="chk"><input type="checkbox" id="vidAll"> 包含已淘汰的帧</label>
+          <label class="chk"><input type="checkbox" id="vidFade"> 首尾淡入淡出（循环播放不跳）</label>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">输出</span>
+          <span class="dev-meta" id="vidOut"></span>
+        </div>
+      </div>
+      <p class="dev-note">连拍帧按拍摄顺序逐帧播放：原本 0.3 秒的瞬间会拉成数秒，能看清翅膀扇动。只做缩放与编码，不降噪、不调色（要成片质量请用「出片」）。</p>
+    </div>
+    <div class="dlg-foot">
+      <div class="spacer"></div>
+      <button class="btn" data-close>取消</button>
+      <button class="btn primary" id="vidGo">生成视频</button>
+    </div>
+  </div>
+</div>
+
+<!-- 批量出片 -->
+<div id="batchModal" class="modal" hidden>
+  <div class="dialog">
+    <div class="dlg-head"><h3>批量出片</h3><button class="btn ghost icon" data-close>✕</button></div>
+    <div class="dlg-body">
+      <div class="opts">
+        <div class="opt-row">
+          <span class="opt-label">范围</span>
+          <select id="batchScope" class="sel">
+            <option value="filter">当前筛选结果</option>
+            <option value="best">每组连拍的最佳张</option>
+            <option value="starred">已打星的</option>
+            <option value="species">当前鸟种</option>
+            <option value="all">全部（不含已淘汰）</option>
+          </select>
+          <span class="dev-meta" id="batchCount"></span>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">预设</span>
+          <div class="seg" id="batchPreset">
+            <button data-v="light">轻度</button><button data-v="standard" class="on">标准</button><button data-v="strong">强力</button>
+          </div>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">步骤</span>
+          <span class="opt-label" style="width:auto">降噪</span><select id="batchDenoise" class="sel">
+            <option value="ai">AI（sRGB 域 · 最佳但慢）</option>
+            <option value="raw">RAW 域（线性 · 快）</option>
+            <option value="off">不降噪</option>
+          </select>
+          <label class="chk"><input type="checkbox" id="batchSubject" checked> 主体增强</label>
+          <label class="chk"><input type="checkbox" id="batchBg" checked> 背景处理</label>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">输出</span>
+          <label class="chk"><input type="checkbox" id="batch16"> 16 位 TIFF（RAW 源更佳）</label>
+          <span class="dev-meta" id="batchOut"></span>
+        </div>
+      </div>
+      <div class="alert warn" id="batchWarn" hidden></div>
+      <p class="dev-note">批量出片是后台任务，期间可以继续浏览；原片不会被修改。单张耗时随分辨率与是否降噪变化（约 1 秒–40 秒）。</p>
+    </div>
+    <div class="dlg-foot">
+      <div class="spacer"></div>
+      <button class="btn" data-close>取消</button>
+      <button class="btn primary" id="batchGo" disabled>开始出片</button>
+    </div>
+  </div>
+</div>
+
+<!-- 出片 -->
+<div id="devModal" class="modal" hidden>
+  <div class="dialog wide">
+    <div class="dlg-head"><h3>出片 · <span id="devName" class="dev-name"></span></h3><button class="btn ghost icon" data-close>✕</button></div>
+    <div class="dlg-body dev-body">
+      <div class="dev-opts">
+        <div class="opt-row">
+          <span class="opt-label">预设</span>
+          <div class="seg" id="devPreset">
+            <button data-v="light">轻度</button><button data-v="standard" class="on">标准</button><button data-v="strong">强力</button>
+          </div>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">步骤</span>
+          <span class="opt-label" style="width:auto">降噪</span><select id="devDenoise" class="sel">
+            <option value="ai">AI（sRGB 域 · 最佳但慢）</option>
+            <option value="raw">RAW 域（线性 · 快）</option>
+            <option value="off">不降噪</option>
+          </select>
+          <label class="chk"><input type="checkbox" id="devSubject" checked> 主体增强（纹理/阴影/高光/鸟眼）</label>
+          <label class="chk"><input type="checkbox" id="devBg" checked> 背景处理（压暗/降饱和/柔化）</label>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">输出</span>
+          <label class="chk"><input type="checkbox" id="dev16"> 16 位 TIFF（用 RAW 解码，文件大、速度慢）</label>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">对比</span>
+          <div class="seg" id="devView"><button data-v="after" class="on">处理后</button><button data-v="before">原图</button></div>
+          <span class="dev-meta" id="devMeta"></span>
+        </div>
+      </div>
+      <div class="dev-stage"><img id="devImg" alt=""><div class="dev-loading" id="devLoading">正在处理…</div></div>
+      <p class="dev-note" id="devNote"></p>
+    </div>
+    <div class="dlg-foot">
+      <span class="dev-note">导出到 <code>_出片/</code>，保留原目录结构，不覆盖原片。</span>
+      <div class="spacer"></div>
+      <button class="btn" data-close>关闭</button>
+      <button class="btn primary" id="devExport">导出这张</button>
+    </div>
+  </div>
+</div>
+
+<!-- 整理预览 -->
+<div id="planModal" class="modal" hidden>
+  <div class="dialog wide">
+    <div class="dlg-head"><h3>整理预览</h3><button class="btn ghost icon" data-close>✕</button></div>
+    <div class="dlg-body">
+      <div class="opts">
+        <div class="opt-row">
+          <span class="opt-label">整理到</span>
+          <label class="radio"><input type="radio" name="tmode" value="same" checked> 当前目录内</label>
+          <label class="radio"><input type="radio" name="tmode" value="other"> 其他目录</label>
+          <button class="btn small" id="btnPickTarget" hidden>选择…</button>
+          <span class="path small" id="targetPath"></span>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">同名冲突</span>
+          <label class="chk"><input type="checkbox" id="optRename" checked> 自动重命名（加 _2 后缀，RAW/JPG 同步改名）</label>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">空文件夹</span>
+          <label class="chk"><input type="checkbox" id="optCleanup" checked> 移动后删除变空的原文件夹</label>
+        </div>
+        <div class="opt-row">
+          <span class="opt-label">淘汰照片</span>
+          <label class="chk"><input type="checkbox" id="optReject"> 放进当天的 <code>_淘汰</code> 子文件夹（不删除，随时可以挪回来）</label>
+        </div>
+      </div>
+      <div id="planBody"></div>
+    </div>
+    <div class="dlg-foot">
+      <label class="chk confirm"><input type="checkbox" id="planAck"> 我已核对上面的移动计划</label>
+      <div class="spacer"></div>
+      <button class="btn" data-close>取消</button>
+      <button class="btn danger" id="btnExecute" disabled>开始移动</button>
+    </div>
+  </div>
+</div>
+
+<!-- 整理记录 -->
+<div id="historyModal" class="modal" hidden>
+  <div class="dialog">
+    <div class="dlg-head"><h3>整理记录</h3><button class="btn ghost icon" data-close>✕</button></div>
+    <div class="dlg-body" id="historyBody"></div>
+  </div>
+</div>
+
+<!-- 通用确认框 -->
+<div id="askModal" class="modal" hidden>
+  <div class="dialog narrow">
+    <div class="dlg-head"><h3 id="askTitle"></h3></div>
+    <div class="dlg-body" id="askBody"></div>
+    <div class="dlg-foot"><div class="spacer"></div>
+      <button class="btn" id="askCancel">取消</button>
+      <button class="btn primary" id="askOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 进度 -->
+<div id="progress" class="progress" hidden>
+  <div class="progress-card">
+    <div id="progTitle" class="prog-title"></div>
+    <div class="bar"><div id="progBar"></div></div>
+    <div id="progMsg" class="prog-msg"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+<script src="/web/app.js"></script>
+</body>
+</html>
