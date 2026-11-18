@@ -587,7 +587,8 @@ Delete/Backspace 直接触发删除；「清理淘汰 (N)」一键删除所有�
 
 **许可证**
 
-- 自研代码无第三方约束。
+- **本仓库自有代码与文档：CC BY-NC 4.0**（署名—非商业性使用 4.0 国际），见根目录 `LICENSE`；
+  可复制/修改/再分发，但须署名并保留许可链接，且不得用于商业目的。
 - YOLO11m-seg：Ultralytics **AGPL-3.0**（自用无碍，公开分发或商用需商业授权）。
 - BioCLIP 2：模型卡标 MIT；训练数据（TreeOfLife-10M 等）另有条款，见 `models/bioclip2.provenance.json`。
 - 中国鸟类名录数据 `data/birds_cn.json`：**CC BY-NC 4.0**，仅个人/学术/非商业使用，必须署名；

@@ -80,7 +80,17 @@ open BirdDesk.app
 | 中国鸟类名录 | 见 `data/birds_cn.provenance.json` | **CC BY-NC 4.0** | 非商业使用、需署名；商业分发须替换 |
 | ExifTool 13.60 | Phil Harvey | Perl Artistic / GPL | 随仓库分发 |
 
-结论：**本项目按个人/学术非商业用途发布**。要做商业产品，至少需要替换名录数据、取得 YOLO 商业许可、核对各权重条款。
+## 许可证
+
+本项目**自有代码与文档**采用 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)（署名—非商业性使用 4.0 国际）：
+可以复制、修改、再分发，但**必须署名并保留许可链接**，且**不得用于商业目的**。完整条文见 [`LICENSE`](LICENSE)。
+
+第三方组件不因本项目许可而改变条款，商用前至少需要：替换中国鸟类名录（CC BY-NC）、
+取得 Ultralytics 的 YOLO 商业授权（AGPL-3.0 之外的商业许可）、核对 NAFNet 权重来源。
+
+> 补充说明：Creative Commons 官方并不推荐把 CC 协议用于软件（缺少专利授权条款、与常见软件协议不兼容）。
+> 这里选 CC BY-NC 4.0 是为了与随仓库分发的中文鸟类名录（同为 CC BY-NC 4.0）保持一致、且明确禁止商用。
+> 如果以后希望别人能把它当开源软件使用，换成 MIT / Apache-2.0 会更合适。
 
 ## 测试
 
